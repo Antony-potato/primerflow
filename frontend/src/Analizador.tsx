@@ -51,7 +51,7 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
   const [nFilas, setNFilas] = useState(3);
   const [ancho, setAncho] = useState(100);
   const [colorPor, setColorPor] = useState<"conjunto" | "hebra" | "tubo">("conjunto");
-  const [completo, setCompleto] = useState(false);
+  const [completo, setCompleto] = useState(true); // del 1 al final del gen, como MultAlin
   const oligos = p.oligos;
 
   /** Agrega lo nuevo; si un primer ya estaba y lo pegado trae su tubo, se lo actualiza. */

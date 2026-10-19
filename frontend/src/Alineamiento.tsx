@@ -9,7 +9,7 @@ export function Alineamiento({ p, actualizar, d }: Ctx & { d: Diana }) {
   const [bajo, setBajo] = useState(50);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
-  const [soloPrimers, setSoloPrimers] = useState(true);
+  const [soloPrimers, setSoloPrimers] = useState(false); // del 1 al final del gen, como MultAlin
   const [nFilas, setNFilas] = useState(99);
   const [ancho, setAncho] = useState(100);
 
