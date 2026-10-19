@@ -50,6 +50,8 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
   const [cargando, setCargando] = useState(false);
   const [nFilas, setNFilas] = useState(3);
   const [ancho, setAncho] = useState(100);
+  const [colorPor, setColorPor] = useState<"conjunto" | "hebra" | "tubo">("conjunto");
+  const [completo, setCompleto] = useState(false);
   const oligos = p.oligos;
 
   /** Agrega lo nuevo; si un primer ya estaba y lo pegado trae su tubo, se lo actualiza. */
@@ -92,7 +94,7 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
   const ubicados = useMemo(() => (res ? res.map((r) => ubicarEnPanel({ nombre: r.nombre, seq: r.seq, tubo: r.tubo,
     conjunto: oligos.find((o) => o.nombre === r.nombre)?.conjunto ?? "" }, p.dianas)) : []), [res, p.dianas]); // oligos sólo aporta el conjunto (color)
   const alineadas = p.dianas.some((d) => d.alin);
-  const porGen = p.dianas.map((d) => ({ d, us: ubicados.filter((x) => x.d === d).map((x) => x.u!) })).filter((g) => g.us.length);
+  const porGen = p.dianas.map((d) => ({ d, us: ubicados.filter((x) => x.d === d).map((x) => ({ ...x.u!, tubo: x.o.tubo })) })).filter((g) => g.us.length);
   const filasControl = res?.map((o) => COLUMNAS.map(([, k]) => o[k] as string | number | null)) ?? [];
   const filasPos = ubicados.map(filaPosicion);
 
@@ -239,20 +241,32 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
                 <label>Columnas por línea{" "}
                   <select value={ancho} onChange={(e) => setAncho(+e.target.value)}>{[60, 80, 100, 130].map((n) => <option key={n}>{n}</option>)}</select>
                 </label>
+                <label>Color de las líneas según{" "}
+                  <select value={colorPor} onChange={(e) => setColorPor(e.target.value as typeof colorPor)}>
+                    <option value="conjunto">conjunto (artículo, convencional, qPCR…)</option>
+                    <option value="hebra">hebra (Forward / Reverse)</option>
+                    <option value="tubo">tubo</option>
+                  </select>
+                </label>
+                <label><input type="checkbox" checked={completo} onChange={(e) => setCompleto(e.target.checked)} /> gen completo</label>
               </div>
               <p className="nota">
-                Si un gen tiene un solo conjunto, Forward sale en <b style={{ color: "#16a34a" }}>verde</b> y Reverse en <b style={{ color: "#dc2626" }}>rojo</b>;
-                si tiene varios (artículo, convencional, qPCR…), cada conjunto tiene su color. Los desajustes con el consenso salen en rojo.
+                Cada primer lleva una línea de color hasta donde empieza y, al final, su <b>inicio–fin</b> en el alineamiento (los mismos números de la tabla de posiciones).
+                El conjunto sale solo del nombre (<code>Pri_artic</code> → artic, <code>Mpr_QPCR</code> → QPCR) o lo escribes en la lista de arriba; si un gen tiene un solo
+                conjunto, se colorea por hebra: Forward <b style={{ color: "#16a34a" }}>verde</b>, Reverse <b style={{ color: "#dc2626" }}>rojo</b>. Los desajustes con el consenso salen en rojo.
               </p>
               {porGen.map(({ d, us }) => {
-                const conjuntos = [...new Set(us.map((u) => u.conjunto))];
-                const varios = conjuntos.length > 1;
-                const primers = us.map((u) => (varios ? u : { ...u, conjunto: u.hebra === "sentido" ? "Forward" : "Reverse" }));
+                const hebra = (u: (typeof us)[number]) => (u.hebra === "sentido" ? "Forward" : "Reverse");
+                const porConjunto = colorPor === "conjunto" && new Set(us.map((u) => u.conjunto)).size > 1;
+                const primers = us.map((u) => ({ ...u, conjunto: colorPor === "tubo" ? u.tubo : porConjunto ? u.conjunto : hebra(u) }));
+                const valores = [...new Set(primers.map((u) => u.conjunto))];
+                const colorDe = (v: string) => (v === "Forward" ? "#16a34a" : v === "Reverse" ? "#dc2626" : PALETA[valores.indexOf(v) % PALETA.length]);
                 return (
                   <div key={d.id}>
-                    <h4><i>{especieDe(d)}</i> · {genDe(d)} <small className="nota">({d.archivo})</small></h4>
-                    <Esquema alin={d.alin!} primers={primers} ancho={ancho} soloPrimers nFilas={nFilas} nombre={d.prefijo}
-                      colorDe={(cj) => (cj === "Forward" ? "#16a34a" : cj === "Reverse" ? "#dc2626" : PALETA[conjuntos.indexOf(cj) % PALETA.length])} />
+                    <h4><i>{especieDe(d)}</i> · {genDe(d)} <small className="nota">({d.archivo})</small>{" "}
+                      {valores.map((v) => <small key={v} className="nota"><span className="punto" style={{ background: colorDe(v) }} />{v} </small>)}
+                    </h4>
+                    <Esquema alin={d.alin!} primers={primers} ancho={ancho} soloPrimers={!completo} nFilas={nFilas} nombre={d.prefijo} colorDe={colorDe} />
                   </div>
                 );
               })}

@@ -220,7 +220,10 @@ export function pegarPrimers(texto: string, conjunto: string): Oligo[] {
       ?? celdas.find((c, i) => i !== iSeq && !/^tubo/i.test(c) && !/\.(fasta|fa|fas)$/i.test(c)) ?? `primer${out.length + 1}`;
     const t = celdas.find((c) => /^tubo/i.test(c));
     const seq = celdas[iSeq].replace(/\s/g, "").toUpperCase();
-    if (!out.some((o) => o.nombre === nombre && o.seq === seq)) out.push({ nombre, seq, tubo: t ?? grupo, conjunto });
+    // ponytail: conjunto = sufijo del nombre (Pri_artic → artic) salvo que sea F/R (Saureus_nuc_cF); si no, el que llegó
+    const sufijo = nombre.includes("_") ? nombre.split("_").at(-1)! : "";
+    const cj = sufijo && !/^c?[FR]\d*$/i.test(sufijo) ? sufijo : conjunto;
+    if (!out.some((o) => o.nombre === nombre && o.seq === seq)) out.push({ nombre, seq, tubo: t ?? grupo, conjunto: cj });
   }
   return out;
 }

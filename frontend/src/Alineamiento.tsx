@@ -169,7 +169,7 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
   const lineas = filas.length + primers.length + 4; // regla, filas, primers, consenso, separación
   const bloques = rango(Math.ceil(L / ancho)).map((i) => [i * ancho, Math.min((i + 1) * ancho, L)])
     .filter(([a, b]) => !soloPrimers || primers.some((u) => u.cols.some((c) => c >= a && c < b)));
-  const W = izq + ancho * CW + 50, H = bloques.length * lineas * LH + 10;
+  const W = izq + ancho * CW + 90, H = bloques.length * lineas * LH + 10;
   const cons = alin.consenso_multalin;
   const x = (c: number, desde: number) => izq + (c - desde) * CW;
   // Cada primer como una "fila" del alineamiento: su motivo en sus columnas, espacios en el resto.
@@ -244,7 +244,7 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
                   </g>
                 ))}
                 {filasPrimer.map(({ u, texto: fila, malas }, pi) => {
-                  const y = yFila(filas.length + pi), col = colorDe(u.conjunto), ini = u.cols[0];
+                  const y = yFila(filas.length + pi), col = colorDe(u.conjunto), ini = u.cols[0], fin = u.cols.at(-1)!;
                   return (
                     <g key={u.conjunto + u.nombre}>
                       <text x={izq - 6} y={y} fontSize={11} fontFamily="Consolas, monospace" fill={col} textAnchor="end" fontWeight="bold">{u.nombre}</text>
@@ -252,6 +252,9 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
                         <line x1={x(desde, desde)} x2={x(ini, desde) - 2} y1={y - 4} y2={y - 4} stroke={col} strokeWidth={4} strokeLinecap="round" />
                       )}
                       {texto(fila, desde, hasta, y, (c) => (malas.has(c) ? "#dc2626" : "#111827"), "bold")}
+                      {fin >= desde && fin < hasta && ( // inicio–fin en columnas del alineamiento, como en la tabla de posiciones
+                        <text x={x(fin + 1, desde) + 6} y={y} fontSize={11} fontWeight="bold" fill={col} fontFamily="sans-serif">{u.inicio}–{u.final}</text>
+                      )}
                     </g>
                   );
                 })}
