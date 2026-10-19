@@ -155,38 +155,44 @@ function Pista({ alin }: { alin: Alin }) {
   );
 }
 
-const CW = 8.4, LH = 16, FS = 13;
-const ROJO = "#d40000", AZUL = "#0033cc", NEGRO = "#1f2937";
+// Esquema como la salida de MultAlin: Courier, nombres a la derecha, regla |----+----|, y los primers contados
+// como secuencias más (igual que si los metieras en MultAlin), así sólo se pintan las columnas donde coinciden.
+const CW = 7.2, LH = 14, FS = 12, MONO = "'Courier New', Courier, monospace";
+const ROJO = "#d40000", AZUL = "#0033cc", NEGRO = "#000";
+const ALTO = 0.9, BAJO = 0.5; // umbrales por defecto de MultAlin
 
 export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, nombre }: {
   alin: Alin; primers: PrimerUbicado[]; colorDe: (conjunto: string) => string; ancho: number; soloPrimers: boolean; nFilas: number; nombre: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
-  const filas = alin.filas.slice(0, nFilas).map((f) => ({ ...f, id: f.id.split("|")[0].slice(0, 26) })); // etiqueta corta, como MultAlin
   const L = alin.consenso.length;
-  const etiquetas = [...filas.map((f) => f.id), ...primers.map((u) => u.nombre)];
-  const izq = Math.max(9, ...etiquetas.map((t) => t.length)) * 7.4 + 14;
-  const lineas = filas.length + primers.length + 4; // regla, filas, primers, consenso, separación
-  const bloques = rango(Math.ceil(L / ancho)).map((i) => [i * ancho, Math.min((i + 1) * ancho, L)])
-    .filter(([a, b]) => !soloPrimers || primers.some((u) => u.cols.some((c) => c >= a && c < b)));
-  const W = izq + ancho * CW + 90, H = bloques.length * lineas * LH + 10;
-  const cons = alin.consenso_multalin;
-  const x = (c: number, desde: number) => izq + (c - desde) * CW;
-  // Cada primer como una "fila" del alineamiento: su motivo en sus columnas, espacios en el resto.
+  const filas = alin.filas.slice(0, nFilas).map((f) => ({ id: f.id.split("|")[0].slice(0, 20), seq: f.seq.toUpperCase() }));
+  // Cada primer como una fila más: su motivo en sus columnas, en blanco el resto.
   const filasPrimer = primers.map((u) => {
     const fila = Array<string>(L).fill(" ");
-    const malas = new Set(u.desajustes.map((j) => u.cols[j]));
-    u.cols.forEach((c, j) => { fila[c] = u.motivo[j]; });
-    return { u, texto: fila.join(""), malas };
+    u.cols.forEach((c, j) => { fila[c] = u.motivo[j].toUpperCase(); });
+    return { u, seq: fila.join("") };
   });
+  const todas = [...filas, ...filasPrimer].map((f) => f.seq);
+  // Consenso MultAlin: MAYÚSCULA si ≥ 90 % de las filas, minúscula si ≥ 50 %, «.» el resto.
+  const cons = rango(L).map((c) => {
+    const n: Record<string, number> = {};
+    for (const s of todas) if (/[A-Z]/.test(s[c])) n[s[c]] = (n[s[c]] ?? 0) + 1;
+    const [b, k] = Object.entries(n).sort((p, q) => q[1] - p[1])[0] ?? [".", 0];
+    return k >= ALTO * todas.length ? b : k >= BAJO * todas.length ? b.toLowerCase() : ".";
+  }).join("");
+  const color = (s: string, c: number) =>
+    cons[c] === "." || s[c] !== cons[c].toUpperCase() ? NEGRO : cons[c] === s[c] ? ROJO : AZUL;
 
-  function color(fila: string, c: number) {
-    const m = cons[c];
-    if (m === "." || fila[c].toUpperCase() !== alin.consenso[c]) return NEGRO;
-    return m === m.toUpperCase() ? ROJO : AZUL;
-  }
+  const etiquetas = [...filas.map((f) => f.id), ...primers.map((u) => u.nombre), "Consensus"];
+  const izq = Math.max(...etiquetas.map((t) => t.length)) * CW + 12;
+  const lineas = filas.length + primers.length + 4; // números, regla, filas, primers, consenso, renglón en blanco
+  const bloques = rango(Math.ceil(L / ancho)).map((i) => [i * ancho, Math.min((i + 1) * ancho, L)])
+    .filter(([a, b]) => !soloPrimers || primers.some((u) => u.cols.some((c) => c >= a && c < b)));
+  const W = izq + ancho * CW + 90, H = bloques.length * lineas * LH + 6;
+  const x = (c: number, desde: number) => izq + (c - desde) * CW;
 
-  function texto(s: string, desde: number, hasta: number, y: number, colorDe: (c: number) => string, peso?: string) {
+  function texto(s: string, desde: number, hasta: number, y: number, colorDe: (c: number) => string) {
     // Tramos del mismo color; los espacios van aparte porque SVG los colapsaría y correría las letras.
     const clave = (c: number) => (s[c] === " " ? " " : colorDe(c));
     const tramos: [number, number][] = [];
@@ -194,13 +200,16 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
       if (c === hasta || clave(c) !== clave(ini)) { tramos.push([ini, c]); ini = c; }
     }
     return (
-      <text y={y} fontFamily="Consolas, 'Courier New', monospace" fontSize={FS} fontWeight={peso}>
+      <text y={y} fontFamily={MONO} fontSize={FS} fontWeight="bold">
         {tramos.filter(([i, j]) => j > i && s[i] !== " ").map(([i, j]) => (
           <tspan key={i} fill={colorDe(i)} x={rango(j - i, i).map((c) => x(c, desde).toFixed(1)).join(" ")}>{s.slice(i, j)}</tspan>
         ))}
       </text>
     );
   }
+  const nombreFila = (t: string, y: number) => (
+    <text x={izq - 8} y={y} fontFamily={MONO} fontSize={FS} fontWeight="bold" textAnchor="end">{t}</text>
+  );
 
   function exportar(formato: "svg" | "png") {
     const fuente = new XMLSerializer().serializeToString(ref.current!);
@@ -221,7 +230,8 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
         <button onClick={() => exportar("svg")}>Descargar SVG</button>
         <button onClick={() => exportar("png")}>Descargar PNG 300 ppp</button>
         <span className="nota">
-          <b style={{ color: ROJO }}>Rojo</b> ≥ consenso alto · <b style={{ color: AZUL }}>azul</b> ≥ consenso bajo · negro: el resto o distinto del consenso.
+          Colores de MultAlin con cada primer contado como una secuencia más: <b style={{ color: ROJO }}>rojo</b> ≥ 90 % de las filas,{" "}
+          <b style={{ color: AZUL }}>azul</b> ≥ 50 %, negro el resto (en el consenso: MAYÚSCULA, minúscula o «.»).
         </span>
       </div>
       <div className="esquema">
@@ -229,38 +239,38 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
           <rect width={W} height={H} fill="#fff" />
           {bloques.map(([desde, hasta], bi) => {
             const y0 = bi * lineas * LH + LH;
-            const yFila = (i: number) => y0 + (i + 1) * LH;
+            const yFila = (i: number) => y0 + (i + 2) * LH;
+            // Números: inicio del bloque, cada 10 (si no choca con el final) y el final alineado a la derecha.
+            const numeros = rango(hasta - desde, desde).filter((c) => c === desde || c === hasta - 1 || ((c + 1) % 10 === 0 && hasta - 1 - c >= 5));
+            const regla = " ".repeat(desde) + rango(hasta - desde, desde).map((c) => (c === desde || c === hasta - 1 ? "|" : (c + 1) % 10 === 0 ? "+" : "-")).join("");
+            const alFinal = (c: number) => c === hasta - 1 && c !== desde;
             return (
               <g key={desde}>
-                <text x={x(desde, desde)} y={y0 - 2} fontSize={10} fill="#64748b" fontFamily="sans-serif">{desde + 1}</text>
-                {rango(hasta - desde, desde).filter((c) => (c + 1) % 10 === 0).map((c) => (
-                  <text key={c} x={x(c, desde) + CW / 2} y={y0 - 2} fontSize={10} textAnchor="middle" fill="#64748b" fontFamily="sans-serif">{c + 1}</text>
+                {numeros.map((c) => (
+                  <text key={c} x={x(alFinal(c) ? c + 1 : c, desde)} y={y0} fontFamily={MONO} fontSize={FS} fontWeight="bold"
+                    textAnchor={alFinal(c) ? "end" : "start"}>{c + 1}</text>
                 ))}
-                <line x1={x(desde, desde)} x2={x(hasta, desde)} y1={y0 + 2} y2={y0 + 2} stroke="#94a3b8" strokeDasharray="1 3" />
+                {texto(regla, desde, hasta, y0 + LH, () => NEGRO)}
                 {filas.map((f, fi) => (
-                  <g key={f.id}>
-                    <text x={4} y={yFila(fi)} fontSize={11} fontFamily="Consolas, monospace" fill="#334155">{f.id}</text>
-                    {texto(f.seq, desde, hasta, yFila(fi), (c) => color(f.seq, c))}
-                  </g>
+                  <g key={f.id + fi}>{nombreFila(f.id, yFila(fi))}{texto(f.seq, desde, hasta, yFila(fi), (c) => color(f.seq, c))}</g>
                 ))}
-                {filasPrimer.map(({ u, texto: fila, malas }, pi) => {
+                {filasPrimer.map(({ u, seq }, pi) => {
                   const y = yFila(filas.length + pi), col = colorDe(u.conjunto), ini = u.cols[0], fin = u.cols.at(-1)!;
                   return (
                     <g key={u.conjunto + u.nombre}>
-                      <text x={izq - 6} y={y} fontSize={11} fontFamily="Consolas, monospace" fill={col} textAnchor="end" fontWeight="bold">{u.nombre}</text>
-                      {ini >= desde && ini < hasta && ini > desde && (
-                        <line x1={x(desde, desde)} x2={x(ini, desde) - 2} y1={y - 4} y2={y - 4} stroke={col} strokeWidth={4} strokeLinecap="round" />
+                      {nombreFila(u.nombre, y)}
+                      {ini > desde && ini < hasta && ( // la línea que antes se dibujaba a mano: del inicio del bloque al primer
+                        <line x1={x(desde, desde) + 2} x2={x(ini, desde) - 3} y1={y - 4} y2={y - 4} stroke={col} strokeWidth={3.5} strokeLinecap="round" />
                       )}
-                      {texto(fila, desde, hasta, y, (c) => (malas.has(c) ? "#dc2626" : "#111827"), "bold")}
+                      {texto(seq, desde, hasta, y, (c) => color(seq, c))}
                       {fin >= desde && fin < hasta && ( // inicio–fin en columnas del alineamiento, como en la tabla de posiciones
-                        <text x={x(fin + 1, desde) + 6} y={y} fontSize={11} fontWeight="bold" fill={col} fontFamily="sans-serif">{u.inicio}–{u.final}</text>
+                        <text x={x(fin + 1, desde) + 6} y={y} fontSize={FS - 1} fontWeight="bold" fill={col} fontFamily={MONO}>{u.inicio}–{u.final}</text>
                       )}
                     </g>
                   );
                 })}
-                <text x={4} y={yFila(filas.length + primers.length)} fontSize={11} fontFamily="Consolas, monospace" fontWeight="bold" fill="#334155">Consensus</text>
-                {texto(cons, desde, hasta, yFila(filas.length + primers.length), (c) => (cons[c] === "." ? NEGRO : cons[c] === cons[c].toUpperCase() ? ROJO : AZUL), "bold")}
-                <text x={x(hasta, desde) + 6} y={yFila(0)} fontSize={10} fill="#64748b" fontFamily="sans-serif">{hasta}</text>
+                {nombreFila("Consensus", yFila(filas.length + primers.length))}
+                {texto(cons, desde, hasta, yFila(filas.length + primers.length), (c) => (cons[c] === "." ? NEGRO : cons[c] === cons[c].toUpperCase() ? ROJO : AZUL))}
               </g>
             );
           })}
