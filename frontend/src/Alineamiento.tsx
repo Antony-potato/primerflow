@@ -193,21 +193,25 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
   const bloques = rango(Math.ceil(L / ancho)).map((i) => [i * ancho, Math.min((i + 1) * ancho, L)])
     .filter(([a, b]) => !soloPrimers || primers.some((u) => u.cols.some((c) => c >= a && c < b)))
     .map(([desde, hasta]) => {
-      const marcas = new Map<number, { x: number; n: number; pis: number[] }>();
+      const marcas = new Map<string, { x: number; n: number; lado: number; pis: number[] }>();
       primers.forEach((u, pi) => {
         for (const [c, n, lado] of [[u.cols[0], u.inicio, 0], [u.cols.at(-1)!, u.final, 1]]) {
           if (c < desde || c >= hasta) continue;
           const xm = x(c + lado, desde) - 0.5; // borde izquierdo del inicio, borde derecho del fin
-          const m = marcas.get(xm) ?? { x: xm, n, pis: [] };
-          m.pis.push(pi); marcas.set(xm, m);
+          const m = marcas.get(`${xm}:${n}`) ?? { x: xm, n, lado, pis: [] };
+          m.pis.push(pi); marcas.set(`${xm}:${n}`, m);
         }
       });
+      // El número va hacia afuera del primer (inicio a la izquierda de su línea, fin a la derecha): así una línea
+      // de un renglón de más arriba no cruza los números de abajo.
       const finRenglon: number[] = [];
-      const lista = [...marcas.values()].sort((a, b) => a.x - b.x).map((m) => {
-        const w = (String(m.n).length * (FS - 1) * 0.6) / 2 + 2;
-        let r = finRenglon.findIndex((d) => d <= m.x - w);
+      const lista = [...marcas.values()].map((m) => {
+        const w = String(m.n).length * (FS - 1) * 0.6 + 3;
+        return { ...m, a: m.lado ? m.x - 1 : m.x - w, b: m.lado ? m.x + w : m.x + 1 };
+      }).sort((p, q) => p.a - q.a).map((m) => {
+        let r = finRenglon.findIndex((d) => d <= m.a);
         if (r < 0) r = finRenglon.push(0) - 1;
-        finRenglon[r] = m.x + w;
+        finRenglon[r] = m.b;
         return { ...m, r };
       });
       return { desde, hasta, marcas: lista, renglones: finRenglon.length };
@@ -294,9 +298,9 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
                   const col = colores.size === 1 ? [...colores][0] : NEGRO;
                   const yNum = y0 - (m.r + 1) * LH;
                   return (
-                    <g key={m.x}>
+                    <g key={`${m.x}:${m.n}`}>
                       <line x1={m.x} x2={m.x} y1={yFila(filas.length + Math.max(...m.pis)) + 2} y2={yNum + 3} stroke={col} strokeWidth={1} strokeDasharray="2 2" />
-                      <text x={m.x} y={yNum} textAnchor="middle" fontFamily={MONO} fontSize={FS - 1} fontWeight="bold" fill={col}>{m.n}</text>
+                      <text x={m.lado ? m.x + 2 : m.x - 2} y={yNum} textAnchor={m.lado ? "start" : "end"} fontFamily={MONO} fontSize={FS - 1} fontWeight="bold" fill={col}>{m.n}</text>
                     </g>
                   );
                 })}
