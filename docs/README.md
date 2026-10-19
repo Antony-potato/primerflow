@@ -16,7 +16,7 @@ Una vez (instalar):
 
 ```bash
 python -m venv .venv
-.venv/Scripts/python -m pip install -r backend/requirements.txt
+.venv/Scripts/python -m pip install -r requirements.txt
 cd frontend && npm install && npm run build && cd ..
 ```
 
@@ -29,6 +29,9 @@ Cada vez (abrir la app en http://127.0.0.1:8765):
 Pruebas contra tu Excel: `.venv/Scripts/python backend/test_motor.py`.
 Para tocar la interfaz con recarga en vivo: deja el servidor corriendo y en otra terminal `cd frontend && npm run dev`
 (http://localhost:5173).
+
+En internet (Vercel, plan gratis): `npx vercel deploy --prod`. `vercel.json` compila el frontend como sitio estático y
+`api/index.py` sirve la API de `backend/` como función de Python en `/api/*`.
 
 Flujo en 1 minuto: **1** arrastra los 9 FASTA y asigna tubo → **2** "Alinear todas" → **3** "Diseñar panel completo"
 → **4** "Cargar pares elegidos" + "Analizar" (tabla IDT, dímeros, CSV, Métodos) → **5** "Correr PCR virtual" → **6** 3D.

@@ -123,8 +123,9 @@ def _cond(c: Condiciones):
 
 @app.get("/api/presets")
 def presets():
+    lim = lambda r: [None if abs(x) == motor.INF else x for x in r]  # JSON no admite inf: sin límite → null
     return {"motor": motor.VERSION, "presets": motor.PRESETS,
-            "criterios": [{"regla": e, "campo": c, "verde": v, "amarillo": a}
+            "criterios": [{"regla": e, "campo": c, "verde": lim(v), "amarillo": lim(a)}
                           for e, c, v, a in motor.CRITERIOS_OLIGO + motor.CRITERIOS_PAR]}
 
 
