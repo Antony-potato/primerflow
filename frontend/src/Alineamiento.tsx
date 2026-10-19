@@ -11,7 +11,7 @@ export function Alineamiento({ p, actualizar, d }: Ctx & { d: Diana }) {
   const [error, setError] = useState("");
   const [soloPrimers, setSoloPrimers] = useState(false); // del 1 al final del gen, como MultAlin
   const [nFilas, setNFilas] = useState(99);
-  const [ancho, setAncho] = useState(100);
+  const [ancho, setAncho] = useState(130); // como MultAlin: 1–130, 131–260…
 
   async function alinear(diana: Diana, archivo?: { texto: string; formato: string }) {
     setCargando(true); setError("");
@@ -187,10 +187,33 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
   const etiquetas = [...filas.map((f) => f.id), ...primers.map((u) => u.nombre), "Consensus"];
   const izq = Math.max(...etiquetas.map((t) => t.length)) * CW + 12;
   const lineas = filas.length + primers.length + 4; // números, regla, filas, primers, consenso, renglón en blanco
-  const bloques = rango(Math.ceil(L / ancho)).map((i) => [i * ancho, Math.min((i + 1) * ancho, L)])
-    .filter(([a, b]) => !soloPrimers || primers.some((u) => u.cols.some((c) => c >= a && c < b)));
-  const W = izq + ancho * CW + 90, H = bloques.length * lineas * LH + 6;
   const x = (c: number, desde: number) => izq + (c - desde) * CW;
+  // Extremos de cada primer: una línea punteada sube hasta su número (columna del alineamiento, como en la tabla).
+  // Primers con el mismo extremo comparten línea; si dos números chocan, se apilan en renglones.
+  const bloques = rango(Math.ceil(L / ancho)).map((i) => [i * ancho, Math.min((i + 1) * ancho, L)])
+    .filter(([a, b]) => !soloPrimers || primers.some((u) => u.cols.some((c) => c >= a && c < b)))
+    .map(([desde, hasta]) => {
+      const marcas = new Map<number, { x: number; n: number; pis: number[] }>();
+      primers.forEach((u, pi) => {
+        for (const [c, n, lado] of [[u.cols[0], u.inicio, 0], [u.cols.at(-1)!, u.final, 1]]) {
+          if (c < desde || c >= hasta) continue;
+          const xm = x(c + lado, desde) - 0.5; // borde izquierdo del inicio, borde derecho del fin
+          const m = marcas.get(xm) ?? { x: xm, n, pis: [] };
+          m.pis.push(pi); marcas.set(xm, m);
+        }
+      });
+      const finRenglon: number[] = [];
+      const lista = [...marcas.values()].sort((a, b) => a.x - b.x).map((m) => {
+        const w = (String(m.n).length * (FS - 1) * 0.6) / 2 + 2;
+        let r = finRenglon.findIndex((d) => d <= m.x - w);
+        if (r < 0) r = finRenglon.push(0) - 1;
+        finRenglon[r] = m.x + w;
+        return { ...m, r };
+      });
+      return { desde, hasta, marcas: lista, renglones: finRenglon.length };
+    });
+  const altos = bloques.map((b) => (b.renglones + lineas) * LH);
+  const W = izq + ancho * CW + 30, H = altos.reduce((s, h) => s + h, 0) + 6;
 
   function texto(s: string, desde: number, hasta: number, y: number, colorDe: (c: number) => string) {
     // Tramos del mismo color; los espacios van aparte porque SVG los colapsaría y correría las letras.
@@ -237,8 +260,8 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
       <div className="esquema">
         <svg ref={ref} xmlns="http://www.w3.org/2000/svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
           <rect width={W} height={H} fill="#fff" />
-          {bloques.map(([desde, hasta], bi) => {
-            const y0 = bi * lineas * LH + LH;
+          {bloques.map(({ desde, hasta, marcas, renglones }, bi) => {
+            const y0 = altos.slice(0, bi).reduce((s, h) => s + h, 0) + (renglones + 1) * LH;
             const yFila = (i: number) => y0 + (i + 2) * LH;
             // Números: inicio del bloque, cada 10 (si no choca con el final) y el final alineado a la derecha.
             const numeros = rango(hasta - desde, desde).filter((c) => c === desde || c === hasta - 1 || ((c + 1) % 10 === 0 && hasta - 1 - c >= 5));
@@ -255,7 +278,7 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
                   <g key={f.id + fi}>{nombreFila(f.id, yFila(fi))}{texto(f.seq, desde, hasta, yFila(fi), (c) => color(f.seq, c))}</g>
                 ))}
                 {filasPrimer.map(({ u, seq }, pi) => {
-                  const y = yFila(filas.length + pi), col = colorDe(u.conjunto), ini = u.cols[0], fin = u.cols.at(-1)!;
+                  const y = yFila(filas.length + pi), col = colorDe(u.conjunto), ini = u.cols[0];
                   return (
                     <g key={u.conjunto + u.nombre}>
                       {nombreFila(u.nombre, y)}
@@ -263,9 +286,17 @@ export function Esquema({ alin, primers, colorDe, ancho, soloPrimers, nFilas, no
                         <line x1={x(desde, desde) + 2} x2={x(ini, desde) - 3} y1={y - 4} y2={y - 4} stroke={col} strokeWidth={3.5} strokeLinecap="round" />
                       )}
                       {texto(seq, desde, hasta, y, (c) => color(seq, c))}
-                      {fin >= desde && fin < hasta && ( // inicio–fin en columnas del alineamiento, como en la tabla de posiciones
-                        <text x={x(fin + 1, desde) + 6} y={y} fontSize={FS - 1} fontWeight="bold" fill={col} fontFamily={MONO}>{u.inicio}–{u.final}</text>
-                      )}
+                    </g>
+                  );
+                })}
+                {marcas.map((m) => {
+                  const colores = new Set(m.pis.map((pi) => colorDe(primers[pi].conjunto)));
+                  const col = colores.size === 1 ? [...colores][0] : NEGRO;
+                  const yNum = y0 - (m.r + 1) * LH;
+                  return (
+                    <g key={m.x}>
+                      <line x1={m.x} x2={m.x} y1={yFila(filas.length + Math.max(...m.pis)) + 2} y2={yNum + 3} stroke={col} strokeWidth={1} strokeDasharray="2 2" />
+                      <text x={m.x} y={yNum} textAnchor="middle" fontFamily={MONO} fontSize={FS - 1} fontWeight="bold" fill={col}>{m.n}</text>
                     </g>
                   );
                 })}

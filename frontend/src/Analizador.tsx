@@ -49,7 +49,7 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
   const [aviso, setAviso] = useState("");
   const [cargando, setCargando] = useState(false);
   const [nFilas, setNFilas] = useState(3);
-  const [ancho, setAncho] = useState(100);
+  const [ancho, setAncho] = useState(130); // como MultAlin: 1–130, 131–260…
   const [colorPor, setColorPor] = useState<"conjunto" | "hebra" | "tubo">("conjunto");
   const [completo, setCompleto] = useState(true); // del 1 al final del gen, como MultAlin
   const oligos = p.oligos;
@@ -251,7 +251,7 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
                 <label><input type="checkbox" checked={completo} onChange={(e) => setCompleto(e.target.checked)} /> gen completo</label>
               </div>
               <p className="nota">
-                Cada primer lleva una línea de color hasta donde empieza y, al final, su <b>inicio–fin</b> en el alineamiento (los mismos números de la tabla de posiciones).
+                Cada primer lleva una línea de color hasta donde empieza, y de cada extremo sube una línea punteada hasta su número (inicio y fin en el alineamiento, los de la tabla de posiciones).
                 El conjunto sale solo del nombre (<code>Pri_artic</code> → artic, <code>Mpr_QPCR</code> → QPCR) o lo escribes en la lista de arriba; si un gen tiene un solo
                 conjunto, se colorea por hebra: Forward <b style={{ color: "#16a34a" }}>verde</b>, Reverse <b style={{ color: "#dc2626" }}>rojo</b>. Los desajustes con el consenso salen en rojo.
               </p>
