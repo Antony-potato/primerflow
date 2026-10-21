@@ -5,6 +5,7 @@ import {
   Condicion, Condiciones, Diana, Estructura, Informe, Nivel, Oligo, PrimerUbicado, csv, descargar, especieDe, fmt, genDe,
   especiesPegadas, pegarPrimers, post, ubicarPrimer,
 } from "./lib";
+import { ComprobarIdt, Especificidad } from "./Externos";
 import { escenaEstructura } from "./Vista3D";
 
 type Matriz = { nombres: string[]; matriz: number[][]; pares: { a: string; b: string; dg: number; anclaje_3p: number; nivel: Nivel; estructura: Estructura }[] };
@@ -208,6 +209,7 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
             Color = criterios del perfil «Tesis» (verde bien, amarillo revisar, rojo fuera de rango). Las horquillas las calcula Primer3;
             IDT usa UNAFold y puede dar hasta ±1.5 kcal/mol distinto.
           </p>
+          <ComprobarIdt res={res} condiciones={p.condiciones} />
 
           <div className="fila">
             <h3>3 · Posiciones en el alineamiento (estilo MEGA / Find Motif)</h3>
@@ -282,6 +284,8 @@ export function Analizador({ p, setP, ver3d }: Ctx) {
               <pre className="ascii">{celda.estructura.ascii.join("\n") || "Sin estructura estable"}</pre>
             </div>
           )}
+
+          <Especificidad p={p} setP={setP} especies={[...new Set(p.dianas.map(especieDe))]} />
 
           <h3>Párrafo para Métodos</h3>
           <p className="metodos">{metodos}</p>

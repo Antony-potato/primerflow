@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Alineamiento } from "./Alineamiento";
 import { Analizador } from "./Analizador";
 import { Diseno } from "./Diseno";
-import { CONDICIONES, Diana, Escena, Proyecto, descargar, especieDe, leerFasta, leerOligos, prefijo } from "./lib";
+import { CONDICIONES, Diana, Escena, Proyecto, descargar, especieDe, leerFasta, leerOligos, post, prefijo } from "./lib";
 import { PcrVirtual } from "./PcrVirtual";
 import { Verificar } from "./Verificar";
 import { Vista3D } from "./Vista3D";
@@ -116,6 +116,17 @@ function Secuencias({ p, setP, actualizar }: Ctx) {
     setP((q) => ({ ...q, dianas: [...q.dianas, ...nuevas] }));
   }
 
+  // NCBI: lo que llega se agrega igual que un FASTA arrastrado (el nombre da el prefijo y la especie).
+  const [ncbi, setNcbi] = useState({ nombre: "", consulta: "", maximo: 30, trayendo: false, error: "" });
+  async function traerNcbi() {
+    setNcbi((n) => ({ ...n, trayendo: true, error: "" }));
+    try {
+      const r = await post<{ fasta: string }>("ncbi/secuencias", { consulta: ncbi.consulta, maximo: ncbi.maximo });
+      await subir([new File([r.fasta], `${ncbi.nombre.trim().replace(/\s+/g, "_") || "NCBI"}_ncbi.fasta`)]);
+      setNcbi((n) => ({ ...n, trayendo: false }));
+    } catch (e) { setNcbi((n) => ({ ...n, trayendo: false, error: (e as Error).message })); }
+  }
+
   return (
     <section>
       <h2>Secuencias (una diana por archivo multi-FASTA)</h2>
@@ -128,6 +139,22 @@ function Secuencias({ p, setP, actualizar }: Ctx) {
         Arrastra aquí tus archivos .fasta (o haz clic)
         <input type="file" multiple accept=".fasta,.fa,.fas,.fna,.txt" hidden onChange={(e) => e.target.files && subir(e.target.files)} />
       </label>
+
+      <details>
+        <summary>…o tráelas de NCBI</summary>
+        <div className="fila">
+          <label>Nombre (especie_gen) <input value={ncbi.nombre} placeholder="A_baumannii_basC" onChange={(e) => setNcbi({ ...ncbi, nombre: e.target.value })} /></label>
+          <label>Máximo de secuencias <input type="number" min={1} max={100} value={ncbi.maximo} onChange={(e) => setNcbi({ ...ncbi, maximo: +e.target.value })} /></label>
+        </div>
+        <textarea rows={4} value={ncbi.consulta} onChange={(e) => setNcbi({ ...ncbi, consulta: e.target.value })}
+          placeholder={"Una búsqueda:   \"Acinetobacter baumannii\"[Organism] AND basC[Gene]\n…o accesiones, una por línea, con rango opcional (c = hebra complementaria):\nCP003967.2:1279779-1281089\nCP064203.1:c2290000-2288690"} />
+        <div className="fila">
+          <button disabled={!ncbi.consulta.trim() || ncbi.trayendo} onClick={traerNcbi}>{ncbi.trayendo ? "Trayendo de NCBI…" : "Traer de NCBI"}</button>
+          <span className="nota">Una búsqueda trae registros completos de 100–20 000 nt (p. ej. contigs que contienen el gen), no genomas.
+            Para tener sólo el gen de cada cepa, como en tus FASTA, usa accesiones con rango (hasta 40).</span>
+        </div>
+        {ncbi.error && <p className="error">{ncbi.error}</p>}
+      </details>
 
       <div className="fila">
         <b>Tubos:</b>

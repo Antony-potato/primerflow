@@ -47,6 +47,7 @@ export type Oligo = { nombre: string; seq: string; tubo: string; conjunto: strin
 export type Proyecto = {
   nombre: string; tubos: string[]; dianas: Diana[]; oligos: Oligo[]; condiciones: Condiciones;
   verificarTexto?: string; oligosTexto?: string; // oligosTexto: formato viejo, se convierte al abrir
+  blast?: import("./Externos").TrabajoBlast; // la búsqueda en NCBI dura minutos: se guarda para retomarla
 };
 export type Escena = { titulo: string; hebras: Hebra[]; pares: [number, number][]; lazo?: boolean; focos?: { nombre: string; k: number }[] };
 

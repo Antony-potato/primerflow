@@ -158,6 +158,15 @@ Todo es `POST` con JSON. Las concentraciones viajan siempre con el preset: `{oli
 `{ tuyo, calculado, diferencia, estado: ok|aprox|no, nota }` por celda. La tabla de posiciones se verifica en el
 navegador contra los alineamientos cargados (`ubicarPrimer` en `lib.ts`).
 
+**Conexiones externas** (`externos.py`; credenciales sólo en variables de entorno, ver README):
+- `POST /api/ncbi/secuencias` — `{ consulta, maximo }` (búsqueda de nuccore o accesiones `ACC[:[c]ini-fin]`) → `{ fasta }`.
+- `POST /api/ncbi/blast` — `{ oligos, excluir: [especies] }` → `{ rid, espera_s }`. Una sola búsqueda blastn-short contra
+  core_nt sin las especies del panel (entre ellas ya revisa la PCR virtual).
+- `POST /api/ncbi/blast/resultado` — `{ rid, pares }` → `{ estado: esperando|listo, sitios, productos }`. El navegador
+  pregunta una vez por minuto (regla de NCBI) y guarda el RID en el proyecto para retomarlo.
+- `POST /api/idt` — `{ oligos, condiciones, clave }` → valores del OligoAnalyzer oficial (Analyze, Hairpin, SelfDimer).
+  403 si la clave no coincide con `PRIMERFLOW_CLAVE`.
+
 **`POST /api/exportar/{xlsx|genbank}`** (pendiente) — CSV, FASTA, pedido IDT y `.json` se generan en el navegador.
 
 ## 5. Estructura de carpetas (objetivo)

@@ -2,6 +2,7 @@
 import io
 import re
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
@@ -9,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import diseno
+import externos
 import motor
 import pcr
 import verificar
@@ -19,6 +21,11 @@ app = FastAPI(title="PrimerFlow", version=motor.VERSION)
 @app.exception_handler(ValueError)
 def _error(_: Request, e: ValueError):
     return JSONResponse(status_code=422, content={"detail": str(e)})
+
+
+@app.exception_handler(PermissionError)
+def _prohibido(_: Request, e: PermissionError):
+    return JSONResponse(status_code=403, content={"detail": str(e)})
 
 
 class Condicion(BaseModel):
@@ -117,6 +124,36 @@ class ExcelReq(BaseModel):
     hojas: list[Hoja] = Field(min_length=1, max_length=10)
 
 
+class NcbiReq(BaseModel):
+    consulta: str = Field(min_length=2, max_length=5000)
+    maximo: int = Field(30, ge=1, le=100)
+
+
+class BlastReq(BaseModel):
+    oligos: list[Oligo] = Field(min_length=1, max_length=40)
+    # especies del panel: se excluyen para ver sólo lo de fuera (entre ellas ya revisa la PCR virtual)
+    excluir: list[Annotated[str, Field(max_length=120, pattern=r"^[\w .\-]+$")]] = Field(default=[], max_length=30)
+
+
+class ParBlast(BaseModel):
+    nombre: str = Field(max_length=80)
+    F: str = Field(max_length=80)  # nombres de los primers, como se mandaron a BLAST
+    R: str = Field(max_length=80)
+
+
+class BlastResultadoReq(BaseModel):
+    rid: str = Field(pattern=r"^\w{6,20}$")
+    pares: list[ParBlast] = Field(default=[], max_length=40)
+    max_desajustes: int = Field(3, ge=0, le=6)
+    tamano_max: int = Field(4000, ge=50, le=20_000)
+
+
+class IdtReq(BaseModel):
+    oligos: list[Oligo] = Field(min_length=1, max_length=60)
+    condiciones: Condiciones = Condiciones()
+    clave: str = Field(max_length=200)
+
+
 def _cond(c: Condiciones):
     return c.model_dump()
 
@@ -187,6 +224,27 @@ def excel(req: ExcelReq):
     buf = io.BytesIO()
     wb.save(buf)
     return Response(buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.post("/api/ncbi/secuencias")
+def ncbi_secuencias(req: NcbiReq):
+    return {"fasta": externos.ncbi_secuencias(req.consulta, req.maximo)}
+
+
+@app.post("/api/ncbi/blast")
+def ncbi_blast(req: BlastReq):
+    return externos.blast_enviar([o.model_dump() for o in req.oligos], req.excluir)
+
+
+@app.post("/api/ncbi/blast/resultado")
+def ncbi_blast_resultado(req: BlastResultadoReq):
+    return externos.blast_resultado(req.rid, [p.model_dump() for p in req.pares], req.max_desajustes, req.tamano_max)
+
+
+@app.post("/api/idt")
+def idt(req: IdtReq):
+    externos.revisar_clave(req.clave)
+    return {"oligos": externos.idt_oligos([o.model_dump() for o in req.oligos], _cond(req.condiciones))}
 
 
 dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"

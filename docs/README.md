@@ -33,6 +33,18 @@ Para tocar la interfaz con recarga en vivo: deja el servidor corriendo y en otra
 En internet (Vercel, plan gratis): `npx vercel deploy --prod`. `vercel.json` compila el frontend como sitio estático y
 `api/index.py` sirve la API de `backend/` como función de Python en `/api/*`.
 
+### Conexiones externas (`backend/externos.py`)
+
+| Servicio | Para qué | Configuración |
+|---|---|---|
+| NCBI E-utilities | Paso 1: bajar secuencias por búsqueda o por accesión con rango | Ninguna. Opcional: `NCBI_EMAIL`, `NCBI_API_KEY` (más consultas por segundo) |
+| NCBI BLAST | Paso 4 §6: ¿los pares amplifican algo fuera del panel? (idea de Primer-BLAST) | Igual que arriba |
+| IDT SciTools Plus | Paso 4: comparar la tabla de control con el OligoAnalyzer oficial | `IDT_CLIENT_ID`, `IDT_CLIENT_SECRET`, `IDT_USUARIO`, `IDT_CONTRASENA`, `PRIMERFLOW_CLAVE` |
+
+Las credenciales van como variables de entorno (Vercel → proyecto → Settings → Environment Variables, o un `.env` local
+que no se sube); nunca en el código. `PRIMERFLOW_CLAVE` es la clave que pide la página para usar IDT, para que nadie más
+gaste las consultas de tu cuenta. Las credenciales de IDT se piden en idtdna.com → tu cuenta → API access (Client ID y Secret).
+
 Flujo en 1 minuto: **1** arrastra los 9 FASTA y asigna tubo → **2** "Alinear todas" → **3** "Diseñar panel completo"
 → **4** "Cargar pares elegidos" + "Analizar" (tabla IDT, dímeros, CSV, Métodos) → **5** "Correr PCR virtual" → **6** 3D.
 
