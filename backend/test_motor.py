@@ -20,6 +20,8 @@ COND = {k: dict(v) for k, v in motor.PRESETS.items()}
 # Erratas del Excel (µg/OD = PM / ε × 1000): 5447.6/154000 = 35.37 (dice 65.37); 6123.0/186800 = 32.78 (dice 30.78)
 ERRATAS = {("Efaecium_ddl_cR", "ug_od"), ("Efaecalis_ddl_cR", "ug_od")}
 
+if not EXCEL.exists():  # el Excel de la tesis no se publica en el repo
+    sys.exit(f"Estas pruebas comparan contra {EXCEL.name}; ponlo en la raíz del proyecto para correrlas.")
 _wb = openpyxl.load_workbook(EXCEL, read_only=True, data_only=True)
 
 

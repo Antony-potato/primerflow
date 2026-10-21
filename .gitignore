@@ -4,3 +4,8 @@ node_modules/
 frontend/dist/
 
 .vercel
+
+# Datos de la tesis: se quedan en tu computadora, no en GitHub
+tonycheca15_resultados_esperados_por_manual1.xlsx
+gu_a_completa_de_dise_o_y_validaci_n_de_primers_desde_cero.md
+manual_3_idt_oligoanalyzer.md

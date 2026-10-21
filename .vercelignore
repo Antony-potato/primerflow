@@ -4,3 +4,5 @@ node_modules
 frontend/dist
 *.fasta
 *.xlsx
+gu_a_completa_de_dise_o_y_validaci_n_de_primers_desde_cero.md
+manual_3_idt_oligoanalyzer.md
