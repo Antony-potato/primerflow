@@ -106,12 +106,12 @@ const INICIOS = ["ATG", "TTG", "GTG"], PAROS = ["TAA", "TAG", "TGA"];
 function Secuencias({ p, setP, actualizar }: Ctx) {
   const [arrastrando, setArrastrando] = useState(false);
 
-  async function subir(archivos: FileList | File[]) {
+  async function subir(archivos: FileList | File[], especie?: string) {
     const nuevas: Diana[] = [];
     for (const f of Array.from(archivos)) {
       const secuencias = leerFasta(await f.text());
       if (!secuencias.length) { alert(`${f.name}: no tiene secuencias FASTA`); continue; }
-      nuevas.push({ id: `${f.name}-${Date.now()}`, archivo: f.name, prefijo: prefijo(f.name), tubo: p.tubos[0], secuencias, tamanos: [150, 600] });
+      nuevas.push({ id: `${f.name}-${Date.now()}`, archivo: f.name, prefijo: prefijo(f.name), tubo: p.tubos[0], secuencias, tamanos: [150, 600], especie });
     }
     setP((q) => ({ ...q, dianas: [...q.dianas, ...nuevas] }));
   }
@@ -122,7 +122,9 @@ function Secuencias({ p, setP, actualizar }: Ctx) {
     setNcbi((n) => ({ ...n, trayendo: true, error: "" }));
     try {
       const r = await post<{ fasta: string }>("ncbi/secuencias", { consulta: ncbi.consulta, maximo: ncbi.maximo });
-      await subir([new File([r.fasta], `${ncbi.nombre.trim().replace(/\s+/g, "_") || "NCBI"}_ncbi.fasta`)]);
+      // especie completa del encabezado («>NC_020547.2:… Acinetobacter baumannii D1279779»): NCBI no entiende abreviaturas
+      const especie = r.fasta.match(/^>\S+ ([A-Z][a-z]+ [a-z]+)/)?.[1];
+      await subir([new File([r.fasta], `${ncbi.nombre.trim().replace(/\s+/g, "_") || "NCBI"}_ncbi.fasta`)], especie);
       setNcbi((n) => ({ ...n, trayendo: false }));
     } catch (e) { setNcbi((n) => ({ ...n, trayendo: false, error: (e as Error).message })); }
   }
@@ -147,7 +149,7 @@ function Secuencias({ p, setP, actualizar }: Ctx) {
           <label>Máximo de secuencias <input type="number" min={1} max={100} value={ncbi.maximo} onChange={(e) => setNcbi({ ...ncbi, maximo: +e.target.value })} /></label>
         </div>
         <textarea rows={4} value={ncbi.consulta} onChange={(e) => setNcbi({ ...ncbi, consulta: e.target.value })}
-          placeholder={"Una búsqueda:   \"Acinetobacter baumannii\"[Organism] AND basC[Gene]\n…o accesiones, una por línea, con rango opcional (c = hebra complementaria):\nCP003967.2:1279779-1281089\nCP064203.1:c2290000-2288690"} />
+          placeholder={"Una búsqueda:   \"Acinetobacter baumannii\"[Organism] AND basC[Gene]\n…o accesiones, una por línea, con rango opcional (c = hebra complementaria):\nNC_020547.2:2576156-2577466\nNZ_CP012345.1:c25000-23690"} />
         <div className="fila">
           <button disabled={!ncbi.consulta.trim() || ncbi.trayendo} onClick={traerNcbi}>{ncbi.trayendo ? "Trayendo de NCBI…" : "Traer de NCBI"}</button>
           <span className="nota">Una búsqueda trae registros completos de 100–20 000 nt (p. ej. contigs que contienen el gen), no genomas.
